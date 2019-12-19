@@ -1,31 +1,28 @@
 -- Heavily based on https://github.com/farzher/fuzzysort/
 
-
 -- Print anything - including nested tables (from http://lua-users.org/wiki/TableSerialization)
-function table_print (tt, indent, done)
+function table_print(tt, indent, done)
   done = done or {}
   indent = indent or 0
   if type(tt) == "table" then
-    for key, value in pairs (tt) do
-      io.write(string.rep (" ", indent)) -- indent it
-      if type (value) == "table" and not done [value] then
-        done [value] = true
-        io.write(string.format("[%s] => table\n", tostring (key)));
-        io.write(string.rep (" ", indent+4)) -- indent it
-        io.write("(\n");
-        table_print (value, indent + 7, done)
-        io.write(string.rep (" ", indent+4)) -- indent it
-        io.write(")\n");
+    for key, value in pairs(tt) do
+      io.write(string.rep(" ", indent)) -- indent it
+      if type(value) == "table" and not done[value] then
+        done[value] = true
+        io.write(string.format("[%s] => table\n", tostring(key)))
+        io.write(string.rep(" ", indent + 4)) -- indent it
+        io.write("(\n")
+        table_print(value, indent + 7, done)
+        io.write(string.rep(" ", indent + 4)) -- indent it
+        io.write(")\n")
       else
-        io.write(string.format("[%s] => %s\n",
-            tostring (key), tostring(value)))
+        io.write(string.format("[%s] => %s\n", tostring(key), tostring(value)))
       end
     end
   else
     io.write(tt .. "\n")
   end
 end
-
 
 fuzzysort = {}
 
@@ -45,7 +42,7 @@ function fuzzysort.prepareBeginningIndexes(target)
     wasUpper = isUpper
     wasAlphanum = isAlphanum
     if isBeginning then
-      table.insert(beginningIndexes, i)
+      beginningIndexes[#beginningIndexes + 1] = i
     end
   end
 
@@ -76,6 +73,7 @@ end
 function fuzzysort.prepare(target)
   return {
     target = target,
+    targetLower = string.lower(target),
     _nextBeginningIndexes = nil,
     score = nil,
     indexes = nil,
@@ -83,23 +81,26 @@ function fuzzysort.prepare(target)
   }
 end
 
+local matchesSimpleLength = 0
+
 function fuzzysort.algorithmNoTypo(search, prepared)
-  fuzzysort.matchesSimple = {} -- cleanup
+  matchesSimpleLength = 0
 
   local searchIndex, targetIndex = 1, 1
-  local target = prepared.target
+  local target = prepared.targetLower
 
-  local searchChar = search:sub(searchIndex, searchIndex)
+  local searchChar = string.byte(search, searchIndex)
 
   -- check if all search chars appear in order in the target:
 
   -- (I'm translating this from manually optimized js so it may be
   -- a bit janky in terms of semantics)
   repeat
-    local isMatch = searchChar == target:sub(targetIndex, targetIndex)
+    local isMatch = searchChar == string.byte(target, targetIndex)
     if isMatch then
       -- store the match index for later
-      table.insert(fuzzysort.matchesSimple, targetIndex)
+      fuzzysort.matchesSimple[matchesSimpleLength + 1] = targetIndex
+      matchesSimpleLength = matchesSimpleLength + 1
       -- increment the search index
       searchIndex = searchIndex + 1
       -- exit the loop if we've reached the end of the search chars
@@ -107,7 +108,7 @@ function fuzzysort.algorithmNoTypo(search, prepared)
         break
       end
       -- set the next search char
-      searchChar = search:sub(searchIndex, searchIndex)
+      searchChar = string.byte(search, searchIndex)
     end
 
     -- increment target index
@@ -155,23 +156,23 @@ function fuzzysort.algorithmNoTypo(search, prepared)
 
         targetIndex = nextBeginningIndexes[lastMatch]
       else
-        local isMatch = search:sub(searchIndex, searchIndex) == target:sub(targetIndex, targetIndex)
+        local isMatch = string.byte(search, searchIndex) == string.byte(target, targetIndex)
         if isMatch then
           fuzzysort.matchesStrict[matchesStrictLength + 1] = targetIndex
           matchesStrictLength = matchesStrictLength + 1
           searchIndex = searchIndex + 1
-          
+
           if searchIndex > #search then
             successStrict = true
             break
           end
-          
+
           targetIndex = targetIndex + 1
         else
           targetIndex = nextBeginningIndexes[targetIndex]
         end
       end
-    until 0 == 1 
+    until 0 == 1
   end
 
   local matchesBest
@@ -182,9 +183,9 @@ function fuzzysort.algorithmNoTypo(search, prepared)
     matchesBestLength = matchesStrictLength
   else
     matchesBest = fuzzysort.matchesSimple
-    matchesBestLength = #fuzzysort.matchesSimple
+    matchesBestLength = matchesSimpleLength
   end
-  
+
   local score = 0
   local lastTargetIndex = 0
 
@@ -213,24 +214,39 @@ function fuzzysort.algorithmNoTypo(search, prepared)
   return prepared
 end
 
-function fuzzysort.go(search, targets)
-  if (search == nil) then
+function fuzzysort.go(search, targets, options)
+  if search == nil or search == "" then
     return {}
   end
 
   local results = {}
 
-  for i, target in ipairs(targets) do
-    local prepared = fuzzysort.prepare(target)
-    local result = fuzzysort.algorithmNoTypo(search, prepared)
-    if result ~= nil then
-      table.insert(results, result)
+  if options and options.key then
+    local key = options.key
+    for i, obj in ipairs(targets) do
+      local target = obj[key]
+      local prepared = fuzzysort.prepare(target)
+      local result = fuzzysort.algorithmNoTypo(search, prepared)
+      if result ~= nil then
+        result = {
+          target = result.target,
+          score = result.score,
+          _nextBeginningIndexes = nil,
+          indexes = result.indexes,
+          obj = obj
+        }
+        results[#results + 1] = result
+      end
+    end
+  else
+    for i, target in ipairs(targets) do
+      local prepared = fuzzysort.prepare(target)
+      local result = fuzzysort.algorithmNoTypo(search, prepared)
+      if result ~= nil then
+        results[#results + 1] = result
+      end
     end
   end
 
   return results
 end
-
--- local list = {"yeet3", "yte33", "your  3rd table", "fla4443p"}
--- local results = fuzzysort.go("ye3", list)
--- table_print(results)
