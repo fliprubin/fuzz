@@ -86,6 +86,48 @@ GUI.New(
 -- pre-set focus on textbox
 GUI.elms.input.focus = true
 
+-- patch this Textbox's draw function to fix drawing bug when it is focused
+function GUI.elms.input:draw()
+  -- Some values can't be set in :init() because the window isn't
+  -- open yet - measurements won't work.
+  if not self.wnd_w then
+    self:wnd_recalc()
+  end
+
+  if self.caption and self.caption ~= "" then
+    self:drawcaption()
+  end
+
+  -- Blit the textbox frame, and make it brighter if focused.
+  gfx.blit(
+    self.buff,
+    1,
+    0,
+    -- (self.focus and self.w or 0),
+    (self.focus and 0 or 0),
+    0,
+    self.w,
+    self.h,
+    self.x,
+    self.y
+  )
+
+  if self.retval ~= "" then
+    self:drawtext()
+  end
+
+  if self.focus then
+    if self.sel_s then
+      self:drawselection()
+    end
+    if self.show_caret then
+      self:drawcaret()
+    end
+  end
+
+  self:drawgradient()
+end
+
 -- Modify this instance of Textbox to ignore Up and Down arrow keys:
 GUI.elms.input.keys[GUI.chars.UP] = function()
 end
@@ -220,6 +262,7 @@ function listen()
   end
 
   local prevSearchStringLength = #searchString
+  local searchTableComplete = false
 
   if GUI.Val("input") ~= inputString then
     inputString = GUI.Val("input")
@@ -231,10 +274,8 @@ function listen()
       searchString = inputString
     end
 
-    benchmark.start("fuzzysort")
-
     local searchTable = {}
-    if #searchString > 1 and #searchString > prevSearchStringLength then
+    if searchTableComplete and #searchString > 1 and #searchString > prevSearchStringLength then
       -- only search within current results for efficiency
       for _, result in pairs(resultsList) do
         searchTable[#searchTable + 1] = result.obj
@@ -247,29 +288,42 @@ function listen()
       end
     end
 
-    local results = fuzzysort.go(searchString, searchTable, {key = "name"})
+    local results = {}
+    Co =
+      coroutine.create(
+      function()
+        searchTableComplete = false
+        benchmark.start("fuzzysort")
+        results = fuzzysort.go(searchString, searchTable, {key = "name"})
+        benchmark.stop("fuzzysort")
 
-    benchmark.stop("fuzzysort")
+        benchmark.start("results list")
 
-    
-    benchmark.start("results list")
-    
-    resultsList = {}
-    for i, result in sortedResults(results) do
-      resultsList[#resultsList + 1] = result
-    end
-    
-    benchmark.stop("results list")
-    
-    -- Now that resultsList might be shorter, make sure our selectedIndex is still within bounds
-    selectedIndex = selectedIndex <= #resultsList and selectedIndex or #resultsList
+        resultsList = {}
+        for i, result in sortedResults(results) do
+          resultsList[#resultsList + 1] = result
+        end
 
-    benchmark.start("udpate results")
+        benchmark.stop("results list")
 
-    GUI.elms.results.list = resultsForListbox(resultsList)
-    updateResultsBox()
+        -- Now that resultsList might be shorter, make sure our selectedIndex is still within bounds
+        selectedIndex = selectedIndex <= #resultsList and selectedIndex or #resultsList
 
-    benchmark.stop("udpate results")
+        benchmark.start("udpate results")
+
+        GUI.elms.results.list = resultsForListbox(resultsList)
+        updateResultsBox()
+
+        benchmark.stop("udpate results")
+        searchTableComplete = true
+      end
+    )
+
+    coroutine.resume(Co)
+  end
+
+  if Co and coroutine.status(Co) == "suspended" then
+    coroutine.resume(Co)
   end
 end
 
