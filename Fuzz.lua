@@ -36,7 +36,7 @@ if missing_lib then
 end
 
 GUI.name = "Fuzz"
-GUI.x, GUI.y, GUI.w, GUI.h = 0, 0, 1800, 480
+GUI.x, GUI.y, GUI.w, GUI.h = 0, 0, 1800, 680
 GUI.anchor, GUI.corner = "screen", "C"
 GUI.fonts[3] = {"Consolas", 35}
 
@@ -45,10 +45,10 @@ GUI.New(
   "Listbox",
   {
     z = 11,
-    x = 80,
+    x = 50,
     y = 80,
     w = 1700,
-    h = 350,
+    h = 550,
     list = {},
     multi = false,
     caption = "",
@@ -68,7 +68,7 @@ GUI.New(
   "Textbox",
   {
     z = 11,
-    x = 80,
+    x = 50,
     y = 32,
     w = 1700,
     h = 35,
@@ -308,6 +308,7 @@ function listen()
 
         -- Now that resultsList might be shorter, make sure our selectedIndex is still within bounds
         selectedIndex = selectedIndex <= #resultsList and selectedIndex or #resultsList
+        selectedIndex = selectedIndex == 0 and 1 or selectedIndex
 
         benchmark.start("udpate results")
 
