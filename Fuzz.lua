@@ -124,7 +124,7 @@ function GUI.elms.input:draw()
     self.buff,
     1,
     0,
-    -- (self.focus and self.w or 0), 
+    -- (self.focus and self.w or 0),
     (self.focus and 0 or 0), -- here's the bugfix
     0,
     self.w,
@@ -262,6 +262,29 @@ benchmark.start("build plugin table")
 local pluginsTable = buildPluginsTable()
 benchmark.stop("build plugin table")
 
+function buildMarkersTable()
+  local markersTable = {}
+  local i = 0
+
+  while true do
+    local retval, isrgn, pos, rgnend, name, markrgnindexnumber, color = reaper.EnumProjectMarkers3(0, i)
+    if retval == 0 then
+      break
+    end
+
+    markersTable[#markersTable + 1] = {
+      index = markrgnindexnumber,
+      name = name
+    }
+
+    i = i + 1
+  end
+
+  return markersTable
+end
+local markersTable = buildMarkersTable()
+
+
 local preCacheCoroutine =
   coroutine.create(
   function()
@@ -272,6 +295,8 @@ local preCacheCoroutine =
     benchmark.start("pre-cache plugins")
     preCacheTargets(pluginsTable, "name")
     benchmark.stop("pre-cache plugins")
+
+    preCacheTargets(markersTable, "name")
   end
 )
 coroutine.resume(preCacheCoroutine)
@@ -304,19 +329,23 @@ function listen()
       return
     end
 
+    local selectedObj = resultsList[selectedIndex].obj
+
     if mode == "actions" then
-      local commandID = resultsList[selectedIndex].obj.code
+      local commandID = selectedObj.code
       reaper.Main_OnCommand(commandID, 0)
     elseif mode == "plugins" then
       -- open plugin
       local selectedTrack = reaper.GetSelectedTrack2(0, 0, true)
       if selectedTrack ~= nil then
-        local fxName = resultsList[selectedIndex].obj.name .. ".RfxChain"
+        local fxName = selectedObj.name .. ".RfxChain"
         local effectIndex = reaper.TrackFX_AddByName(selectedTrack, fxName, false, -1)
         reaper.TrackFX_SetOpen(selectedTrack, effectIndex, true)
       else
         msg("Error: No track selected")
       end
+    elseif mode == "markers" then
+      reaper.GoToMarker(0, selectedObj.index, false)
     end
     gfx.quit()
   end
@@ -326,9 +355,13 @@ function listen()
 
   if GUI.Val("input") ~= inputString then
     inputString = GUI.Val("input")
+    local firstChar = string.sub(inputString, 1, 1)
 
-    if string.sub(inputString, 1, 1) == "$" then
+    if firstChar == "$" then
       mode = "plugins"
+      searchString = string.sub(inputString, 2)
+    elseif firstChar == "@" then
+      mode = "markers"
       searchString = string.sub(inputString, 2)
     else
       mode = "actions"
@@ -346,6 +379,8 @@ function listen()
         searchTable = actionsTable
       elseif mode == "plugins" then
         searchTable = pluginsTable
+      elseif mode == "markers" then
+        searchTable = markersTable
       end
     end
 
