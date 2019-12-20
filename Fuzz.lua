@@ -35,20 +35,41 @@ if missing_lib then
   return 0
 end
 
+-- HiDPI Scaling
+local retval, layoutValue = reaper.ThemeLayout_GetLayout("mcp", -3)
+local guiScale = layoutValue / 256
+local elementWidth = math.floor(1133 * guiScale)
+local textHeight = math.floor(23 * guiScale)
+local listboxHeight = math.floor(550 * guiScale)
+local padding = math.floor(33 * guiScale)
+
 GUI.name = "Fuzz"
-GUI.x, GUI.y, GUI.w, GUI.h = 0, 0, 1800, 680
+GUI.x, GUI.y = 0, 0
+GUI.w = padding + elementWidth + padding
+GUI.h = math.floor(padding + textHeight + (padding / 2) + listboxHeight + padding)
 GUI.anchor, GUI.corner = "screen", "C"
-GUI.fonts[3] = {"Consolas", 35}
+
+local monoFont
+local osName = reaper.GetOS()
+if osName:match("Win") then
+  monoFont = "Consolas"
+elseif osName:match("OSX") then
+  monoFont = "Andale Mono"
+else
+  monoFont = "DejaVuSansMono"
+end
+
+GUI.fonts[3] = {monoFont, textHeight}
 
 GUI.New(
   "results",
   "Listbox",
   {
     z = 11,
-    x = 50,
-    y = 80,
-    w = 1700,
-    h = 550,
+    x = padding,
+    y = math.floor(padding + textHeight + (padding / 2)),
+    w = elementWidth,
+    h = listboxHeight,
     list = {},
     multi = false,
     caption = "",
@@ -68,10 +89,10 @@ GUI.New(
   "Textbox",
   {
     z = 11,
-    x = 50,
-    y = 32,
-    w = 1700,
-    h = 35,
+    x = padding,
+    y = padding,
+    w = elementWidth,
+    h = textHeight,
     caption = "",
     cap_pos = "left",
     color = "txt",
@@ -103,8 +124,8 @@ function GUI.elms.input:draw()
     self.buff,
     1,
     0,
-    -- (self.focus and self.w or 0),
-    (self.focus and 0 or 0),
+    -- (self.focus and self.w or 0), 
+    (self.focus and 0 or 0), -- here's the bugfix
     0,
     self.w,
     self.h,
@@ -166,8 +187,23 @@ function resultsForListbox(results)
   return retval
 end
 
-local inputString = ""
-local searchString = ""
+-- key is the key for the target strings
+function preCacheTargets(table, key)
+  local startTime = os.clock()
+  local elapsedTime = 0
+  local slow = true
+
+  for i, target in ipairs(table) do
+    fuzzysort.getPrepared(target[key], slow)
+
+    -- yield every 50 ms
+    elapsedTime = os.clock() - startTime
+    if elapsedTime > 0.05 then
+      startTime = os.clock()
+      coroutine.yield()
+    end
+  end
+end
 
 -- Enumerate actions to search through
 function buildActionsTable()
@@ -226,10 +262,29 @@ benchmark.start("build plugin table")
 local pluginsTable = buildPluginsTable()
 benchmark.stop("build plugin table")
 
+local preCacheCoroutine =
+  coroutine.create(
+  function()
+    benchmark.start("pre-cache actions")
+    preCacheTargets(actionsTable, "name")
+    benchmark.stop("pre-cache actions")
+
+    benchmark.start("pre-cache plugins")
+    preCacheTargets(pluginsTable, "name")
+    benchmark.stop("pre-cache plugins")
+  end
+)
+coroutine.resume(preCacheCoroutine)
+
+local inputString = ""
+local searchString = ""
+
 local selectedIndex = 1
 local resultsList = {}
 local mode = "actions"
+local searchCoroutine = nil
 
+-- This is the function that runs in the main loop:
 function listen()
   if GUI.char == GUI.chars.UP then
     selectedIndex = selectedIndex - 1
@@ -244,6 +299,11 @@ function listen()
   end
 
   if GUI.char == GUI.chars.RETURN then
+    if #resultsList == 0 then
+      gfx.quit()
+      return
+    end
+
     if mode == "actions" then
       local commandID = resultsList[selectedIndex].obj.code
       reaper.Main_OnCommand(commandID, 0)
@@ -271,6 +331,7 @@ function listen()
       mode = "plugins"
       searchString = string.sub(inputString, 2)
     else
+      mode = "actions"
       searchString = inputString
     end
 
@@ -289,7 +350,7 @@ function listen()
     end
 
     local results = {}
-    Co =
+    searchCoroutine =
       coroutine.create(
       function()
         searchTableComplete = false
@@ -320,11 +381,18 @@ function listen()
       end
     )
 
-    coroutine.resume(Co)
+    coroutine.resume(searchCoroutine)
   end
 
-  if Co and coroutine.status(Co) == "suspended" then
-    coroutine.resume(Co)
+  if searchCoroutine ~= nil and coroutine.status(searchCoroutine) == "suspended" then
+    coroutine.resume(searchCoroutine)
+  end
+
+  if coroutine.status(preCacheCoroutine) == "suspended" then
+    -- Only continue pre-cache if there's no search running
+    if not (searchCoroutine and coroutine.status(searchCoroutine) == "suspended") then
+      coroutine.resume(preCacheCoroutine)
+    end
   end
 end
 

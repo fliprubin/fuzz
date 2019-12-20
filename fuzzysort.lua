@@ -74,17 +74,18 @@ end
 
 local function prepareLowerCodes(str)
   local lowerCodes = {}
+  local strLower = string.lower(str)
   for i = 1, #str do
-    lowerCodes[i] = string.byte(string.lower(str), i)
+    lowerCodes[i] = string.byte(strLower, i)
   end
   return lowerCodes
 end
 
-function fuzzysort.prepare(target)
+function fuzzysort.prepare(target, slow)
   return {
     target = target,
     _targetLowerCodes = prepareLowerCodes(target),
-    _nextBeginningIndexes = nil,
+    _nextBeginningIndexes = slow and prepareNextBeginningIndexes(target) or nil,
     score = nil,
     indexes = nil,
     obj = nil
@@ -92,11 +93,15 @@ function fuzzysort.prepare(target)
 end
 
 fuzzysort.preparedCache = {}
+fuzzysort.preparedSearchCache = {}
 
-function fuzzysort.getPrepared(target)
+-- get the prepared target from cache, or create and cache it
+-- use slow = true when pre-caching to do more of the work in advance
+-- and slow = false during search, to avoid doing unecessary work
+function fuzzysort.getPrepared(target, slow)
   if #target > 999 then
     -- don't cache large targets
-    return fuzzysort.prepare(target)
+    return fuzzysort.prepare(target, slow)
   end
 
   local prepared = fuzzysort.preparedCache[target]
@@ -104,9 +109,25 @@ function fuzzysort.getPrepared(target)
     return prepared
   end
 
-  prepared = fuzzysort.prepare(target)
+  prepared = fuzzysort.prepare(target, slow)
   fuzzysort.preparedCache[target] = prepared
   return prepared
+end
+
+function fuzzysort.getPreparedSearch(search)
+  if #search > 999 then
+    -- don't cache large targets
+    return prepareLowerCodes(search)
+  end
+
+  local preparedSearch = fuzzysort.preparedSearchCache[search]
+  if preparedSearch ~= nil then
+    return preparedSearch
+  end
+
+  preparedSearch = prepareLowerCodes(search)
+  fuzzysort.preparedSearchCache[search] = preparedSearch
+  return preparedSearch
 end
 
 local matchesSimpleLength = 0
@@ -118,7 +139,7 @@ function fuzzysort.algorithmNoTypo(search, prepared)
   local target = prepared.target
   local targetCodes = prepared._targetLowerCodes
 
-  local searchCodes = prepareLowerCodes(search)
+  local searchCodes = fuzzysort.getPreparedSearch(search)
 
   local searchChar = searchCodes[searchIndex]
 
@@ -243,7 +264,7 @@ function fuzzysort.algorithmNoTypo(search, prepared)
 end
 
 function fuzzysort.go(search, targets, options)
-  if search == nil or search == "" then
+  if search == nil or search == "" or targets == nil or #targets == 0 then
     return {}
   end
 
@@ -254,9 +275,9 @@ function fuzzysort.go(search, targets, options)
   if options and options.key then
     local key = options.key
     for i, obj in ipairs(targets) do
-      -- Yield every 20ms ish
+      -- Yield every 50ms to not lock up UI
       local timeElapsed = os.clock() - lastStartTime
-      if timeElapsed > 0.02 then
+      if timeElapsed > 0.05 then
         coroutine.yield()
         lastStartTime = os.clock()
       end
