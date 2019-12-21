@@ -284,6 +284,21 @@ function buildMarkersTable()
 end
 local markersTable = buildMarkersTable()
 
+function buildTracksTable()
+  local tracksTable = {}
+  local numTracks = reaper.GetNumTracks()
+
+  for i = 0, numTracks - 1 do
+    local track = reaper.GetTrack(0, i)
+    local retVal, trackName = reaper.GetTrackName(track)
+    tracksTable[#tracksTable + 1] = {
+      index = i,
+      name = trackName
+    }
+  end
+  return tracksTable
+end
+local tracksTable = buildTracksTable()
 
 local preCacheCoroutine =
   coroutine.create(
@@ -346,6 +361,11 @@ function listen()
       end
     elseif mode == "markers" then
       reaper.GoToMarker(0, selectedObj.index, false)
+    elseif mode == "tracks" then
+      local track = reaper.GetTrack(0, selectedObj.index)
+      reaper.SetOnlyTrackSelected(track)
+      reaper.Main_OnCommand(40913, -1) -- Track: vertical scroll selected tracks into view
+      reaper.SetMixerScroll(track) -- scroll mixer to view the track
     end
     gfx.quit()
   end
@@ -362,6 +382,9 @@ function listen()
       searchString = string.sub(inputString, 2)
     elseif firstChar == "@" then
       mode = "markers"
+      searchString = string.sub(inputString, 2)
+    elseif firstChar == ">" then
+      mode = "tracks"
       searchString = string.sub(inputString, 2)
     else
       mode = "actions"
@@ -381,6 +404,8 @@ function listen()
         searchTable = pluginsTable
       elseif mode == "markers" then
         searchTable = markersTable
+      elseif mode == "tracks" then
+        searchTable = tracksTable
       end
     end
 
