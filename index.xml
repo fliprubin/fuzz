@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" name="Lubalin Fuzz" commit="7c50fd649d0dc3e4d3b3442cbe1175409873223b">
+  <category name="Various">
+    <reapack name="Lubalin_Fuzz.lua" type="script" desc="Fuzz - A fuzzy search command palette for Reaper">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \b \fs36 Fuzz\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 {\i A fuzzy search command palette for Reaper (inspired by the VS Code command palette)}\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Still in Beta!\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Lets you quickly search through:\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Actions (currently only actions in the Main section)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab FX chains\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Markers\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab Tracks\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \b \fs28 How It Works\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 By default, Fuzz searches Reaper actions. Pressing enter will run the currently selected action.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 By using special characters (which you can change using the "Fuzz - settings" script), you can search different things. For example, by default, typing "$" as the first character will allow you to search your FX chains. Pressing enter will load that chain into the first selected track.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 In marker mode, pressing enter will jump to the selected marker. In track mode, pressing enter will select the track and put it into view in the MCP and the TCP.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 In order to save time, there are also scripts which will run Fuzz with those special characters pre-typed for you.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \b \fs28 Default Charaters\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab "" --> Actions (main)\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab "$" --> FX chains\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab "@" --> Markers\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab ">" --> Tracks\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \b \fs28 Suggested Shortcuts\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 I personally have Fuzz mapped to a single key (F). Then I have the different modes mapped to F + {\i some modifier}. So Shift + F opens Fuzz with "$" pre-typed.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Another idea would be to map each mode to the actual character you have set for it. Like having the markers script mapped to "@" (Shift + 2).\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \b \fs28 How Results Are Sorted\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The search algorithm is pretty much a stripped down re-write of https://github.com/farzher/fuzzysort/ in lua.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 In order for a result to appear in the list, it must have the same characters as the search query, in the same {\i order} that they appear in the query.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Results are sorted by a score. Adjecent letters and the first letters of words score higher. After that, score is based on proximity of the letters, and length of the query vs the target.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \b \fs28 Contributing\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 I'm open to contributions, but I may be a bit particular about the what and how of it. Please create an issue or check in with me before doing any work. Thanks!\par}
+}
+]]></description>
+      </metadata>
+      <version name="0.1.0" author="Lubalin" time="2019-12-31T18:26:11Z">
+        <source main="main">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz.lua</source>
+        <source main="main" file="Lubalin_Fuzz/Fuzz.lua">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz/Fuzz.lua</source>
+        <source main="main" file="Lubalin_Fuzz/Fuzz - tracks.lua">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz/Fuzz%20-%20tracks.lua</source>
+        <source main="main" file="Lubalin_Fuzz/Fuzz - plugins.lua">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz/Fuzz%20-%20plugins.lua</source>
+        <source main="main" file="Lubalin_Fuzz/Fuzz - markers.lua">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz/Fuzz%20-%20markers.lua</source>
+        <source main="main" file="Lubalin_Fuzz/Fuzz - settings.lua">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz/Fuzz%20-%20settings.lua</source>
+        <source file="Lubalin_Fuzz/fuzzysort.lua">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz/fuzzysort.lua</source>
+        <source file="Lubalin_Fuzz/benchmark.lua">https://github.com/fliprubin/fuzz/raw/7c50fd649d0dc3e4d3b3442cbe1175409873223b/Various/Lubalin_Fuzz/benchmark.lua</source>
+      </version>
+    </reapack>
+  </category>
+</index>
