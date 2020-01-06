@@ -10,6 +10,7 @@ Lets you quickly search through:
 - FX chains
 - Markers
 - Tracks
+- Track templates
 
 ### How It Works
 
@@ -27,6 +28,7 @@ In order to save time, there are also scripts which will run Fuzz with those spe
 - "\$" --> FX chains
 - "@" --> Markers
 - ">" --> Tracks
+- ";" --> Track templates
 
 ### Suggested Shortcuts
 

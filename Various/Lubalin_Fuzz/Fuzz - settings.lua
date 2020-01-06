@@ -34,10 +34,7 @@ local halfPadding = math.floor(padding / 2)
 GUI.name = "Fuzz - Settings"
 GUI.x, GUI.y = 0, 0
 GUI.w = padding + elementWidth + padding
-GUI.h =
-  padding + textHeight + halfPadding + textHeight + halfPadding + textHeight + halfPadding + textHeight + halfPadding +
-  textHeight +
-  padding
+GUI.h = padding + (textHeight + halfPadding) * 6 + halfPadding
 GUI.anchor, GUI.corner = "screen", "C"
 
 local monoFont
@@ -74,6 +71,27 @@ GUI.New(
 )
 
 GUI.New(
+  "trackTemplates",
+  "Textbox",
+  {
+    z = 11,
+    x = padding,
+    y = padding + (textHeight + halfPadding) * 4,
+    w = textHeight * 2,
+    h = textHeight,
+    caption = " Track Templates",
+    cap_pos = "right",
+    font_a = 3,
+    font_b = 3,
+    color = "txt",
+    bg = "wnd_bg",
+    shadow = false,
+    pad = 4,
+    undo_limit = 20
+  }
+)
+
+GUI.New(
   "Label1",
   "Label",
   {
@@ -94,7 +112,7 @@ GUI.New(
   {
     z = 11,
     x = padding,
-    y = padding + textHeight + halfPadding + textHeight + halfPadding + textHeight + halfPadding,
+    y = padding + (textHeight + halfPadding) * 3,
     w = textHeight * 2,
     h = textHeight,
     caption = " Tracks",
@@ -115,7 +133,7 @@ GUI.New(
   {
     z = 11,
     x = padding,
-    y = padding + textHeight + halfPadding + textHeight + halfPadding,
+    y = padding + (textHeight + halfPadding) * 2,
     w = textHeight * 2,
     h = textHeight,
     caption = " Markers",
@@ -136,7 +154,7 @@ GUI.New(
   {
     z = 11,
     x = padding,
-    y = padding + textHeight + halfPadding + textHeight + halfPadding + textHeight + halfPadding + textHeight + padding,
+    y = padding + (textHeight + halfPadding) * 5 + halfPadding,
     w = textHeight * 5,
     h = textHeight,
     caption = "save",
@@ -146,39 +164,33 @@ GUI.New(
   }
 )
 
-modeSymbols = {
+local modeSymbols = {
   -- defaults
   plugins = "$",
   markers = "@",
+  trackTemplates = ";",
   tracks = ">"
 }
 
-if reaper.HasExtState("Fuzz Settings", "plugins symbol") then
-  modeSymbols["plugins"] = reaper.GetExtState("Fuzz Settings", "plugins symbol")
+for mode, symbol in pairs(modeSymbols) do
+  if reaper.HasExtState("Fuzz Settings", mode .. "_symbol") then
+    modeSymbols[mode] = reaper.GetExtState("Fuzz Settings", mode .. "_symbol")
+  end
+  GUI.Val(mode, modeSymbols[mode])
 end
-if reaper.HasExtState("Fuzz Settings", "markers symbol") then
-  modeSymbols["markers"] = reaper.GetExtState("Fuzz Settings", "markers symbol")
-end
-if reaper.HasExtState("Fuzz Settings", "tracks symbol") then
-  modeSymbols["tracks"] = reaper.GetExtState("Fuzz Settings", "tracks symbol")
-end
-
-GUI.Val("plugins", modeSymbols["plugins"])
-GUI.Val("markers", modeSymbols["markers"])
-GUI.Val("tracks", modeSymbols["tracks"])
 
 GUI.elms.save.func = function()
-  local modes = {"plugins", "markers", "tracks"}
-  for i, mode in ipairs(modes) do
+  -- local modes = {"plugins", "markers", "tracks", "trackTemplates"}
+  for mode, symbol in pairs(modeSymbols) do
     local val = GUI.Val(mode)
-    
+
     -- validate
     if #val ~= 1 then
       msg("Symbol must be single character: " .. mode)
       break
     end
 
-    reaper.SetExtState("Fuzz Settings", mode .. " symbol", val, true)
+    reaper.SetExtState("Fuzz Settings", mode .. "_symbol", val, true)
   end
   gfx.quit()
 end

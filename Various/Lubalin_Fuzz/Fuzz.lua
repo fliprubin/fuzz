@@ -2,6 +2,14 @@ function msg(m)
   return reaper.ShowConsoleMsg(tostring(m) .. "\n")
 end
 
+function invertTable(t)
+  local s = {}
+  for k, v in pairs(t) do
+    s[v] = k
+  end
+  return s
+end
+
 function get_script_path()
   local info = debug.getinfo(1, "S")
   local script_path = info.source:match [[^@?(.*[\/])[^\/]-$]]
@@ -111,17 +119,15 @@ modeSymbols = {
   -- defaults
   plugins = "$",
   markers = "@",
+  trackTemplates = ";",
   tracks = ">"
 }
 
-if reaper.HasExtState("Fuzz Settings", "plugins symbol") then
-  modeSymbols["plugins"] = reaper.GetExtState("Fuzz Settings", "plugins symbol")
-end
-if reaper.HasExtState("Fuzz Settings", "markers symbol") then
-  modeSymbols["markers"] = reaper.GetExtState("Fuzz Settings", "markers symbol")
-end
-if reaper.HasExtState("Fuzz Settings", "tracks symbol") then
-  modeSymbols["tracks"] = reaper.GetExtState("Fuzz Settings", "tracks symbol")
+-- load mode symbols from ext state if they exist
+for mode, symbol in pairs(modeSymbols) do
+  if reaper.HasExtState("Fuzz Settings", mode .. "_symbol") then
+    modeSymbols[mode] = reaper.GetExtState("Fuzz Settings", mode .. "_symbol")
+  end
 end
 
 -- pre-type the mode symbol if coming from one of the mode scripts:
@@ -171,11 +177,12 @@ function GUI.elms.input:draw()
   self:drawgradient()
 end
 
--- Modify this instance of Textbox to ignore Up and Down arrow keys:
-GUI.elms.input.keys[GUI.chars.UP] = function()
+-- Modify this instance of Textbox to ignore Up and Down arrow keys,
+-- so we can use them for navigating the list instead
+local noop = function()
 end
-GUI.elms.input.keys[GUI.chars.DOWN] = function()
-end
+GUI.elms.input.keys[GUI.chars.UP] = noop
+GUI.elms.input.keys[GUI.chars.DOWN] = noop
 
 -- This function iterates over a fuzzysort results table, sorted by score
 function sortedResults(t)
@@ -227,31 +234,10 @@ function preCacheTargets(table, key)
   end
 end
 
--- Enumerate actions to search through
-function buildActionsTable()
-  local ret = 1
-  local actionIndex = 0
-  local actionsTable = {}
-  local theOtherString = ""
-
-  while ret > 0 do
-    local string = ""
-    ret, string = reaper.CF_EnumerateActions(0, actionIndex, theOtherString)
-    table.insert(actionsTable, {code = ret, name = string})
-    actionIndex = actionIndex + 1
-  end
-
-  return actionsTable
-end
-benchmark.start("build actions table")
-local actionsTable = buildActionsTable()
-benchmark.stop("build actions table")
-
--- Make list of plugin chain files
-function buildPluginsTable()
-  local pluginsPath = reaper.GetResourcePath() .. "/FXChains/"
-  local pluginsTable = {}
-
+-- Takes a path and returns all files within it
+-- extensionLength is how many chars to trim off the end of the file name
+function buildTableFromDirectory(searchPath, extensionLength)
+  local outputTable = {}
   function scanDirectory(path)
     local directoryIndex = 0
     while true do
@@ -270,19 +256,40 @@ function buildPluginsTable()
       if file == nil then
         break
       end
-      local subDirectories = string.sub(path, #pluginsPath + 1, #path) .. "/"
-      local filePlusSub = subDirectories .. string.sub(file, 1, #file - 9)
-      pluginsTable[#pluginsTable + 1] = {name = filePlusSub}
+      local subDirectories = string.sub(path, #searchPath + 1, #path) .. "/"
+      local filePlusSub = subDirectories .. string.sub(file, 1, #file - extensionLength)
+      outputTable[#outputTable + 1] = {name = filePlusSub}
     end
   end
-
-  scanDirectory(pluginsPath)
-
-  return pluginsTable
+  scanDirectory(searchPath)
+  return outputTable
 end
-benchmark.start("build plugin table")
-local pluginsTable = buildPluginsTable()
-benchmark.stop("build plugin table")
+
+local searchTables = {}
+
+-- Enumerate actions to search through
+function buildActionsTable()
+  local ret = 1
+  local actionIndex = 0
+  local actionsTable = {}
+  local theOtherString = ""
+
+  while ret > 0 do
+    local string = ""
+    ret, string = reaper.CF_EnumerateActions(0, actionIndex, theOtherString)
+    table.insert(actionsTable, {code = ret, name = string})
+    actionIndex = actionIndex + 1
+  end
+
+  return actionsTable
+end
+benchmark.start("build actions table")
+searchTables["actions"] = buildActionsTable()
+benchmark.stop("build actions table")
+
+-- Make list of plugin chain files
+local pluginsPath = reaper.GetResourcePath() .. "/FXChains/"
+searchTables["plugins"] = buildTableFromDirectory(pluginsPath, 9)
 
 function buildMarkersTable()
   local markersTable = {}
@@ -304,7 +311,10 @@ function buildMarkersTable()
 
   return markersTable
 end
-local markersTable = buildMarkersTable()
+searchTables["markers"] = buildMarkersTable()
+
+local trackTemplatesPath = reaper.GetResourcePath() .. "/TrackTemplates/"
+searchTables["trackTemplates"] = buildTableFromDirectory(trackTemplatesPath, 15)
 
 function buildTracksTable()
   local tracksTable = {}
@@ -320,20 +330,14 @@ function buildTracksTable()
   end
   return tracksTable
 end
-local tracksTable = buildTracksTable()
+searchTables["tracks"] = buildTracksTable()
 
 local preCacheCoroutine =
   coroutine.create(
   function()
-    benchmark.start("pre-cache actions")
-    preCacheTargets(actionsTable, "name")
-    benchmark.stop("pre-cache actions")
-
-    benchmark.start("pre-cache plugins")
-    preCacheTargets(pluginsTable, "name")
-    benchmark.stop("pre-cache plugins")
-
-    preCacheTargets(markersTable, "name")
+    for i, searchTable in ipairs(searchTables) do
+      preCacheTargets(searchTable, "name")
+    end
   end
 )
 coroutine.resume(preCacheCoroutine)
@@ -381,6 +385,9 @@ function listen()
       else
         msg("Error: No track selected")
       end
+    elseif mode == "trackTemplates" then
+      local trackTemplatePath = reaper.GetResourcePath() .. "/TrackTemplates/" .. selectedObj.name .. ".RTrackTemplate"
+      reaper.Main_openProject(trackTemplatePath)
     elseif mode == "markers" then
       reaper.GoToMarker(0, selectedObj.index, false)
     elseif mode == "tracks" then
@@ -399,14 +406,9 @@ function listen()
     inputString = GUI.Val("input")
     local firstChar = string.sub(inputString, 1, 1)
 
-    if firstChar == modeSymbols["plugins"] then
-      mode = "plugins"
-      searchString = string.sub(inputString, 2)
-    elseif firstChar == modeSymbols["markers"] then
-      mode = "markers"
-      searchString = string.sub(inputString, 2)
-    elseif firstChar == modeSymbols["tracks"] then
-      mode = "tracks"
+    mode = invertTable(modeSymbols)[firstChar]
+    if mode ~= nil then
+      -- we are in a mode, search string should omit the search char:
       searchString = string.sub(inputString, 2)
     else
       mode = "actions"
@@ -420,15 +422,7 @@ function listen()
         searchTable[#searchTable + 1] = result.obj
       end
     else
-      if mode == "actions" then
-        searchTable = actionsTable
-      elseif mode == "plugins" then
-        searchTable = pluginsTable
-      elseif mode == "markers" then
-        searchTable = markersTable
-      elseif mode == "tracks" then
-        searchTable = tracksTable
-      end
+      searchTable = searchTables[mode]
     end
 
     local results = {}

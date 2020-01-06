@@ -1,12 +1,15 @@
 --[[
 @description Fuzz - A fuzzy search command palette for Reaper
 @author Lubalin
-@version 0.1.1
+@version 0.2.0
+@changelog 
+  Add a mode to search and insert track templates 
 @provides
   [main] Lubalin_Fuzz/Fuzz.lua
   [main] Lubalin_Fuzz/Fuzz - tracks.lua
   [main] Lubalin_Fuzz/Fuzz - plugins.lua
   [main] Lubalin_Fuzz/Fuzz - markers.lua
+  [main] Lubalin_Fuzz/Fuzz - trackTemplates.lua
   [main] Lubalin_Fuzz/Fuzz - settings.lua
   [nomain] Lubalin_Fuzz/fuzzysort.lua
   [nomain] Lubalin_Fuzz/benchmark.lua
@@ -24,6 +27,7 @@
   - FX chains
   - Markers
   - Tracks
+  - Track templates
 
   ### How It Works
 
@@ -41,6 +45,7 @@
   - "\$" --> FX chains
   - "@" --> Markers
   - ">" --> Tracks
+  - ";" --> Track templates
 
   ### Suggested Shortcuts
 
